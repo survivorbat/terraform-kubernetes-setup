@@ -1,0 +1,58 @@
+version: '3.5'
+
+volumes:
+  db-data: ~
+
+networks:
+  nginx: ~
+  mysql: ~
+
+services:
+    api:
+      build:
+        context: Api
+      restart: always
+      expose:
+        - 80
+      networks:
+        - nginx
+        - mysql
+      environment:
+        DB_CONNECTION_STRING: "Server=mysql;Database=Example;Port=3306;User ID=example;Password=example"
+
+    mysql:
+      image: mysql:8.0.20
+      restart: always
+      networks:
+        - mysql
+      volumes:
+        - db-data:/var/lib/mysql
+      ports:
+        - 3306:3306
+      environment:
+        MYSQL_ROOT_PASSWORD: root
+        MYSQL_USER: example
+        MYSQL_PASSWORD: example
+        MYSQL_DATABASE: Example
+
+    phpmyadmin:
+      image: phpmyadmin/phpmyadmin
+      restart: unless-stopped
+      networks:
+        - mysql
+      environment:
+        PMA_HOST: mysql
+      ports:
+        - 8080:80
+
+    nginx:
+      build:
+        context: Frontend
+      restart: always
+      ports:
+      - 80:80
+      networks:
+        - nginx
+      volumes:
+        - ./Frontend/nginx/nginx.conf:/etc/nginx/temp/nginx.conf
+        - ./Frontend/nginx/conf.d:/etc/nginx/temp/conf.d

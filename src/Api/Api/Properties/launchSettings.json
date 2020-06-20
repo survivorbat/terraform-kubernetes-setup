@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Api": {
+      "commandName": "Project",
+      "launchUrl": "/api",
+      "environmentVariables": {
+        "DB_CONNECTION_STRING": "Server=localhost;Database=EXAMPLE;Port=3306;User ID=example;Password=example"
+      }
+    }
+  }
+}

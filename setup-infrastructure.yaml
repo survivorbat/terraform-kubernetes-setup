@@ -1,0 +1,137 @@
+trigger:
+  branches:
+    include:
+      - master
+      - develop
+      - feature/*
+  paths:
+    include:
+      - terraform
+      - setup-infrastructure.yaml
+
+variables:
+  # What image to run the pipeline in
+  vmImage: "ubuntu-latest"
+
+  # Domain name
+  domainName: "example.com"
+
+  # Location of terraform code
+  terraformDirectory: "$(Build.SourcesDirectory)/terraform"
+
+  # Name of the connection to Azure for Terraform state
+  azureServiceConnection: "ARM"
+
+  # Amount of nodes you want
+  kubernetesMinNodeCount: 2
+  kubernetesMaxNodeCount: 4
+
+  # Size of each node
+  kubernetesNodesize: s-1vcpu-2gb
+
+  # Amount of database nodes
+  databaseNodeCount: 1
+
+  # Size of a database node
+  databaseSize: db-s-1vcpu-1gb
+
+  # Region to build infrastructure in
+  region: ams3
+
+  # Kubernetes namespace
+  namespaceName: example
+
+stages:
+  - stage: Validate_Infra
+    displayName: Validate Terraform Code
+    jobs:
+      - job: Validate
+        displayName: Validate Infrastructure
+        steps:
+          - task: qetza.replacetokens.replacetokens-task.replacetokens@3
+            displayName: 'Replace tokens in terraform/*.tf'
+            inputs:
+              targetFiles: 'terraform/*.tf'
+              tokenPrefix: '__'
+              tokenSuffix: '__'
+
+          - task: TerraformCLI@0
+            inputs:
+              command: 'init'
+              backendType: "azurerm"
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: "Example"
+              backendAzureRmStorageAccountName: "examplestate"
+              backendAzureRmContainerName: "tfstate"
+              backendAzureRmKey: "prod.terraform.tfstate"
+              commandOptions: $(terraformDirectory)
+            displayName: Init $(terraformDirectory)
+
+          - task: TerraformCLI@0
+            inputs:
+              command: 'validate'
+              commandOptions: $(terraformDirectory)
+            displayName: Validate $(terraformDirectory)
+
+      - job: Plan
+        dependsOn: [Validate]
+        displayName: Plan Infrastructure
+        steps:
+          - task: qetza.replacetokens.replacetokens-task.replacetokens@3
+            displayName: 'Replace tokens in terraform/*.tf'
+            inputs:
+              targetFiles: 'terraform/*.tf'
+              tokenPrefix: '__'
+              tokenSuffix: '__'
+
+          - task: TerraformCLI@0
+            inputs:
+              command: 'init'
+              backendType: "azurerm"
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: "Example"
+              backendAzureRmStorageAccountName: "examplestate"
+              backendAzureRmContainerName: "tfstate"
+              backendAzureRmKey: "prod.terraform.tfstate"
+              commandOptions: $(terraformDirectory)
+            displayName: Init $(terraformDirectory)
+
+          - task: TerraformCLI@0
+            inputs:
+              command: 'plan'
+              environmentServiceName: $(azureServiceConnection)
+              commandOptions: $(terraformDirectory)
+            displayName: Plan $(terraformDirectory)
+
+  - stage: Deploy
+    condition: and(succeeded(), eq(variables['build.sourcebranchname'], 'master'))
+    displayName: Deploy infrastructure
+    jobs:
+      - job: Infra_Deploy
+        displayName: Terraform Deploy
+        steps:
+          - task: qetza.replacetokens.replacetokens-task.replacetokens@3
+            displayName: 'Replace tokens in terraform/*.tf'
+            inputs:
+              targetFiles: 'terraform/*.tf'
+              tokenPrefix: '__'
+              tokenSuffix: '__'
+
+          - task: TerraformCLI@0
+            inputs:
+              command: 'init'
+              backendType: "azurerm"
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: "Example"
+              backendAzureRmStorageAccountName: "examplestate"
+              backendAzureRmContainerName: "tfstate"
+              backendAzureRmKey: "prod.terraform.tfstate"
+              commandOptions: $(terraformDirectory)
+            displayName: Init $(terraformDirectory)
+
+          - task: TerraformCLI@0
+            inputs:
+              command: 'apply'
+              environmentServiceName: $(azureServiceConnection)
+              commandOptions: $(terraformDirectory)
+            displayName: Apply $(terraformDirectory)

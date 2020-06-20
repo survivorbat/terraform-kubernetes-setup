@@ -1,0 +1,91 @@
+trigger:
+  branches:
+    include:
+      - master
+      - develop
+      - feature/*
+  paths:
+    include:
+      - src/Frontend/*
+
+variables:
+  vmImage: ubuntu-latest
+  buildContext: $(Build.SourcesDirectory)/src/Frontend
+  dockerFile: $(buildContext)/Dockerfile
+  repository: exampleregistry/frontend
+  containerRegistry: Registry
+  tag: $(Build.BuildNumber)
+
+  k8sNamespace: example
+  k8sConnection: K8s
+  manifestDirectory: $(Build.SourcesDirectory)/src/Frontend/manifests
+  imagePullSecret: docker-pull-secret
+
+stages:
+  - stage: Build
+    displayName: Build and test
+    jobs:
+      - job: Build
+        displayName: Build and Test
+        pool:
+          vmImage: $(vmImage)
+        steps:
+          - task: Docker@2
+            displayName: Build Docker image $(buildContext)
+            inputs:
+              dockerfile: $(dockerFile)
+              command: 'build'
+              buildContext: $(buildContext)
+
+  - stage: Deploy
+    displayName: Deploy
+    condition: and(succeeded(), eq(variables['build.sourcebranchname'], 'master'))
+    jobs:
+      - job: Publish
+        displayName: Publish Docker image
+        pool:
+          vmImage: $(vmImage)
+        steps:
+          - task: Docker@2
+            displayName: Login to $(containerRegistry)
+            inputs:
+              command: login
+              containerRegistry: $(containerRegistry)
+
+          - task: Docker@2
+            displayName: Push Docker image $(repository)
+            inputs:
+              dockerfile: $(dockerFile)
+              command: 'buildAndPush'
+              buildContext: $(buildContext)
+              containerRegistry: $(containerRegistry)
+              repository: $(repository)
+              tags: |
+                latest
+                $(tag)
+
+      - job: Deploy
+        displayName: Deploy to K8s
+        dependsOn: Publish
+        pool:
+          vmImage: $(vmImage)
+        steps:
+          - task: KubernetesManifest@0
+            displayName: Create image pull secret $(imagePullSecret)
+            inputs:
+              action: createSecret
+              secretName: $(imagePullSecret)
+              namespace: $(k8sNamespace)
+              secretType: dockerRegistry
+              kubernetesServiceConnection: $(k8sConnection)
+              dockerRegistryEndpoint: $(containerRegistry)
+
+          - task: KubernetesManifest@0
+            displayName: Deploy to Kubernetes cluster
+            inputs:
+              action: deploy
+              namespace: $(k8sNamespace)
+              manifests: $(manifestDirectory)/*
+              imagePullSecrets: $(imagePullSecret)
+              kubernetesServiceConnection: $(k8sConnection)
+              containers: $(containerRegistry)/$(repository):$(tag)
