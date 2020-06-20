@@ -16,6 +16,8 @@ variables:
   # Domain name
   domainName: "example.com"
 
+  #  apiToken: "<secret>" <--- This secret variable is defined in the Azure DevOps UI
+
   # Location of terraform code
   terraformDirectory: "$(Build.SourcesDirectory)/terraform"
 
