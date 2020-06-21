@@ -1,3 +1,5 @@
+# TODO: Clean up later by turning everything into modules
+
 # Provider to connect to DO
 provider "digitalocean" {
   token = var.api_token
@@ -11,7 +13,9 @@ resource "digitalocean_project" "project" {
   resources = [
     digitalocean_domain.domain.urn,
     digitalocean_database_cluster.database.urn,
-    "do:kubernetes:${digitalocean_kubernetes_cluster.kubernetes_cluster.id}"
+    "do:kubernetes:${digitalocean_kubernetes_cluster.kubernetes_cluster.id}",
+    # Get the ID of the load balancer from the ingress_service
+    "do:loadbalancer:${data.kubernetes_service.ingress_service.metadata[0].annotations["kubernetes.digitalocean.com/load-balancer-id"]}"
   ]
 }
 
@@ -276,4 +280,11 @@ resource "kubernetes_ingress" "ingress" {
   }
 
   wait_for_load_balancer = true
+}
+
+data "kubernetes_service" "ingress_service" {
+  metadata {
+    name = "ingress-nginx-controller"
+    namespace = "ingress-nginx"
+  }
 }
