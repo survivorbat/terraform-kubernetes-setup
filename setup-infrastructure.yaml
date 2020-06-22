@@ -17,6 +17,8 @@ variables:
   domainName: "example.com"
 
   #  apiToken: "<secret>" <--- This secret variable is defined in the Azure DevOps UI
+  #  doAccessKey: "<secret>" <--- This secret variable is defined in the Azure DevOps UI
+  #  doSecretKey: "<secret>" <--- This secret variable is defined in the Azure DevOps UI
 
   # Location of terraform code
   terraformDirectory: "$(Build.SourcesDirectory)/terraform"
@@ -60,12 +62,6 @@ stages:
           - task: TerraformCLI@0
             inputs:
               command: 'init'
-              backendType: "azurerm"
-              backendServiceArm: $(azureServiceConnection)
-              backendAzureRmResourceGroupName: "Example"
-              backendAzureRmStorageAccountName: "examplestate"
-              backendAzureRmContainerName: "tfstate"
-              backendAzureRmKey: "prod.terraform.tfstate"
               commandOptions: $(terraformDirectory)
             displayName: Init $(terraformDirectory)
 
@@ -89,19 +85,12 @@ stages:
           - task: TerraformCLI@0
             inputs:
               command: 'init'
-              backendType: "azurerm"
-              backendServiceArm: $(azureServiceConnection)
-              backendAzureRmResourceGroupName: "Example"
-              backendAzureRmStorageAccountName: "examplestate"
-              backendAzureRmContainerName: "tfstate"
-              backendAzureRmKey: "prod.terraform.tfstate"
               commandOptions: $(terraformDirectory)
             displayName: Init $(terraformDirectory)
 
           - task: TerraformCLI@0
             inputs:
               command: 'plan'
-              environmentServiceName: $(azureServiceConnection)
               commandOptions: $(terraformDirectory)
             displayName: Plan $(terraformDirectory)
 
@@ -122,18 +111,11 @@ stages:
           - task: TerraformCLI@0
             inputs:
               command: 'init'
-              backendType: "azurerm"
-              backendServiceArm: $(azureServiceConnection)
-              backendAzureRmResourceGroupName: "Example"
-              backendAzureRmStorageAccountName: "examplestate"
-              backendAzureRmContainerName: "tfstate"
-              backendAzureRmKey: "prod.terraform.tfstate"
               commandOptions: $(terraformDirectory)
             displayName: Init $(terraformDirectory)
 
           - task: TerraformCLI@0
             inputs:
               command: 'apply'
-              environmentServiceName: $(azureServiceConnection)
               commandOptions: $(terraformDirectory)
             displayName: Apply $(terraformDirectory)
